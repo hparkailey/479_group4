@@ -1,0 +1,26 @@
+---
+title: "Untitled"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+```{r}
+df = read.csv("./code/raw data/traffic_violaions.csv",
+              na.strings=c("","NA"))
+df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
+# factor variables
+df$driver_gender = as.factor(df$driver_gender)
+df$driver_race = as.factor(df$driver_race)
+df$violation_raw = as.factor(df$violation_raw)
+df$violation = as.factor(df$violation)
+df$search_type = as.factor(df$search_type)
+df$stop_outcome = as.factor(df$stop_outcome)
+df$stop_duration = as.factor(df$stop_duration)
+df$stop_date = as.Date(mdy(df$stop_date)) # date variable
+df = df[, -c(3, 5, 8)] #drop country_name, two raw variables
+#summary(df)
+df = df %>% drop_na()
+```
+
