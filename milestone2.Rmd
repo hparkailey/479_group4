@@ -1,0 +1,74 @@
+---
+title: "Milestone2 exploration"
+author: "Hailey Park"
+date: "3/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(ggmap)
+library(sf)
+library(ggplot2)
+library(tsibble)
+```
+
+```{r}
+orig = read_csv("traffic_violations.csv")%>%
+  drop_na()
+
+
+larger_orig = read_csv("Traffic_Violations 2.csv")
+
+```
+
+
+
+```{r}
+data = read_csv("traffic_violations.csv")%>%
+  select(-country_name)%>%
+  drop_na()%>%
+  mutate(driver_age = as.numeric(driver_age),
+         stop_date = mdy(stop_date),
+         stop_time = strptime(stop_time, format = "%H:%M:%S"))%>%
+  mutate(stop_year = year(stop_date),
+         stop_month = month(stop_date, label = TRUE))
+          # or hms(stop_time) 
+           #as.Date(stop_date), format='%m/%d/%Y')
+
+
+# 
+#   mutate_all(funs(ifelse(is.na(.),"none",.)))%>%
+#   mutate(driver_age = as.numeric(driver_age))
+
+
+exp1 = data%>%
+  group_by(violation, driver_race)%>%
+  summarize(count = n(), mean_age = mean(as.numeric(driver_age)))
+
+exp2 = data%>%
+  group_by(driver_gender,is_arrested)%>%
+  summarize(count = n())
+
+exp3 = data%>%
+  group_by(stop_month)%>%
+  summarize(count(stop_outcome))
+```
+
+Stacked bar plot (Driver_race vs Violation counts (each violation type stacked))
+```{r}
+ggplot(exp1,aes(driver_race,count,fill=violation))+
+  geom_bar(position="stack",stat="identity")
+```
+
+Time series 
+```{r}
+data_ts = as_tsibble(data,index=stop_date, key=)
+```
+
+GGmap (longitude and latitude available in the larger data)
+
