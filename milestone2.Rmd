@@ -10,42 +10,48 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(tidyverse)
 library(lubridate)
-library(dplyr)
 library(ggmap)
 library(sf)
 library(ggplot2)
 library(tsibble)
+library(dplyr)
+```
+
+# Data Cleaning
+```{r}
+data = read_csv("traffic_violaions.csv")
+head(data)
 ```
 
 ```{r}
-orig = read_csv("traffic_violations.csv")%>%
-  drop_na()
+summary(data) 
+# notice there's 52965 NAs on country_name, 
+# driver age raw is redundant with driver_age
+# a lot of NAs on search_type with little other than few:  "probable cause, Incident to Arrest, Reasonable Suspicion ..
+```
 
-
-larger_orig = read_csv("Traffic_Violations 2.csv")
+```{r}
+data %>%
+  select(-c(country_name, driver_age_raw, search_type))%>%
+  drop_na() %>% # drop rows w/ missing values
+  
+  mutate( # change data type
+    stop_date = as_date(stop_date, format="%m/%d/%y"),
+    stop_time = strptime(stop_time, format= "%H:%M:%S"),
+    
+  ) %>%
+  mutate( # add columns
+    stop_year  = year(stop_date),
+    stop_month = month(stop_date),
+    stop_hour  = hour(stop_time),
+    stop_minute= minute(stop_time)
+  )
+  # left the stop_date and stop_time in case we need it
 
 ```
 
 
-
 ```{r}
-data = read_csv("traffic_violations.csv")%>%
-  select(-country_name)%>%
-  drop_na()%>%
-  mutate(driver_age = as.numeric(driver_age),
-         stop_date = mdy(stop_date),
-         stop_time = strptime(stop_time, format = "%H:%M:%S"))%>%
-  mutate(stop_year = year(stop_date),
-         stop_month = month(stop_date, label = TRUE))
-          # or hms(stop_time) 
-           #as.Date(stop_date), format='%m/%d/%Y')
-
-
-# 
-#   mutate_all(funs(ifelse(is.na(.),"none",.)))%>%
-#   mutate(driver_age = as.numeric(driver_age))
-
-
 exp1 = data%>%
   group_by(violation, driver_race)%>%
   summarize(count = n(), mean_age = mean(as.numeric(driver_age)))
