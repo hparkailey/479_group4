@@ -28,29 +28,36 @@ summary(data)
 # notice there's 52965 NAs on country_name, 
 # driver age raw is redundant with driver_age
 # a lot of NAs on search_type with little other than few:  "probable cause, Incident to Arrest, Reasonable Suspicion ..
+# driver_gender and race can be converted into category
 ```
 
 ```{r}
-data %>%
-  select(-c(country_name, driver_age_raw, search_type))%>%
+data<- data %>%
+  select(-c(country_name, driver_age_raw, search_type, violation_raw))%>%
   drop_na() %>% # drop rows w/ missing values
   
   mutate( # change data type
+    driver_gender = factor(driver_gender),
+    driver_race = factor(driver_race),
+    violation = factor(violation),
     stop_date = as_date(stop_date, format="%m/%d/%y"),
     stop_time = strptime(stop_time, format= "%H:%M:%S"),
     
   ) %>%
   mutate( # add columns
-    stop_year  = year(stop_date),
-    stop_month = month(stop_date),
+    stop_year  = as.integer(year(stop_date)),
+    stop_month = as.integer(month(stop_date)),
     stop_hour  = hour(stop_time),
     stop_minute= minute(stop_time)
   )
   # left the stop_date and stop_time in case we need it
-
 ```
 
+```{r}
+summary(data)
+```
 
+# Data Exploration
 ```{r}
 exp1 = data%>%
   group_by(violation, driver_race)%>%
@@ -60,9 +67,9 @@ exp2 = data%>%
   group_by(driver_gender,is_arrested)%>%
   summarize(count = n())
 
-exp3 = data%>%
-  group_by(stop_month)%>%
-  summarize(count(stop_outcome))
+#exp3 = data%>%
+#  group_by(stop_month)%>%
+#  summarize(count(stop_outcome))
 ```
 
 Stacked bar plot (Driver_race vs Violation counts (each violation type stacked))
@@ -73,7 +80,7 @@ ggplot(exp1,aes(driver_race,count,fill=violation))+
 
 Time series 
 ```{r}
-data_ts = as_tsibble(data,index=stop_date, key=)
+#data_ts = as_tsibble(data,index=stop_date, key=)
 ```
 
 GGmap (longitude and latitude available in the larger data)
