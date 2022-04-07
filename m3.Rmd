@@ -6,12 +6,13 @@ output: html_document
 library(shiny)
 library(tidyverse)
 library(lubridate)
+library(readr)
+library(patchwork)
 ```
 
 ```{r clean}
 ## change file path
-df = read.csv("./code/raw data/traffic_violaions.csv",
-              na.strings=c("","NA"))
+df = read_csv("traffic_violations.csv")
 ## no changes to the following code
 df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
 # factor variables
@@ -54,7 +55,27 @@ table_search <- function(df){
     summarise(n = sum(n))
 }
 
+## create a bar plot for a given variable 
+plot_bar = function(df,x,col_var){
+  df%>%
+    ggplot(aes(get(x), fill = get(col_var)))+
+    geom_bar()+
+    labs(title = paste(x,"patterns by",col_var), x=x, fill = col_var)
+}
+
+## combine two subplots (stop outcome and violation)
+combine = function(df, col_var){
+  p = list()
+  p[["stop_plot"]] = plot_bar(df,"stop_outcome", col_var)
+  p[["vio_plot"]] = plot_bar(df,"violation", col_var)
+  p[["stop_plot"]] + p[["vio_plot"]]+
+    plot_layout(guides = "collect")&
+    plot_annotation(theme=theme(legend.position = "right"))
+}
+
 ```
+
+
 
 ```{r}
 ui <- fluidPage(
@@ -66,12 +87,13 @@ ui <- fluidPage(
       checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender), 
                          selected = unique(df$driver_gender)), 
       # can only select one value ?change?
-      selectInput("race", "Race", unique(df$driver_race)), 
+      selectInput("race", "Race", unique(df$driver_race), multiple = TRUE), 
       plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))),
     
     mainPanel(
-      plotOutput("bar_vio"), #the number of different violation types
-      plotOutput("bar_stop"), #stop outcomes
+      selectInput("color", "Select a variable you want to color in:", list("race","gender")),
+      plotOutput("bar_vio_stop"), 
+      #compound figure of the number of different violation types and stop types 
       plotOutput("bar_arr"), # a stacked bar plot: relationship between whether arrested and drug-related stops
       dataTableOutput("table_search"), #frequency table of search types
       dataTableOutput("table")) #the complete subset of the data
@@ -104,6 +126,7 @@ server <- function(input, output) {
   output$hist_brushed <- renderPlot(hist_brushed(df_sub_unbrushed()))
   output$table <- renderDataTable(df_sub_brushed())
   output$table_search = renderDataTable(table_search(df_sub_brushed()))
+  output$bar_vio_stop = renderPlot(combine(df_sub_unbrushed(), paste("driver_",input$color, sep = "")))
 }
 
 app <- shinyApp(ui, server)
