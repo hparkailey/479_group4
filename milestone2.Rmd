@@ -41,7 +41,7 @@ data<- data %>%
     driver_race = factor(driver_race),
     violation = factor(violation),
     stop_date = as_date(stop_date, format="%m/%d/%y"),
-    stop_time = strptime(stop_time, format= "%H:%M:%S"),
+    stop_time = strptime(stop_time, format= "%H:%M:%S")
     
   ) %>%
   mutate( # add columns

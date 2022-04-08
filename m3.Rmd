@@ -44,7 +44,10 @@ hist_brushed <- function(df) {
     group_by(stop_date) %>%
     summarise(n = sum(n)) %>%
     ggplot(aes(stop_date, n)) +
-    geom_col()
+    geom_col()+
+    xlab("Stop date of the traffic violation")+
+    ylab("Total number of violation cases")+
+    ggtitle("Total number of violation over the stop date")
 }
 
 ## create the frequency table for the search_type
@@ -79,7 +82,7 @@ combine = function(df, col_var){
 
 ```{r}
 ui <- fluidPage(
-  titlePanel("Hello Shiny!"), #change
+  titlePanel("Traffic Violation"),
   
   sidebarLayout(
     sidebarPanel(
@@ -87,7 +90,7 @@ ui <- fluidPage(
       checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender), 
                          selected = unique(df$driver_gender)), 
       # can only select one value ?change?
-      selectInput("race", "Race", unique(df$driver_race), multiple = TRUE), 
+      selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE), 
       plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))),
     
     mainPanel(
