@@ -76,6 +76,14 @@ combine = function(df, col_var){
     plot_annotation(theme=theme(legend.position = "right"))
 }
 
+#stacked bar plot (arrested and drug-related stop):
+stacked_bar = function(df) {
+  df %>% 
+    ggplot(aes(x = is_arrested,fill = drugs_related_stop)) +
+    geom_bar()+ 
+    labs(title="relationship between whether arrested and drug-related stop")
+}
+
 ```
 
 
@@ -130,6 +138,7 @@ server <- function(input, output) {
   output$table <- renderDataTable(df_sub_brushed())
   output$table_search = renderDataTable(table_search(df_sub_brushed()))
   output$bar_vio_stop = renderPlot(combine(df_sub_unbrushed(), paste("driver_",input$color, sep = "")))
+  output$bar_arr = renderPlot(stacked_bar(df_sub_unbrushed()))
 }
 
 app <- shinyApp(ui, server)
