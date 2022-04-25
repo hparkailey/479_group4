@@ -1,0 +1,366 @@
+---
+title: "Milestone3"
+output: html_document
+---
+
+```{r packages}
+library(shiny)
+library(tidyverse)
+library(lubridate)
+library(readr)
+library(patchwork)
+library(ggridges)
+library(wordcloud2) 
+```
+
+```{r clean}
+## change file path
+df = read.csv("./code/raw data/traffic_violaions.csv",
+              na.strings=c("","NA"))
+## no changes to the following code
+df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
+# factor variables
+df$driver_gender = as.factor(df$driver_gender)
+df$driver_race = as.factor(df$driver_race)
+df$violation_raw = as.factor(df$violation_raw)
+df$violation = as.factor(df$violation)
+df$search_type = as.factor(df$search_type)
+df$stop_outcome = as.factor(df$stop_outcome)
+df$stop_duration = as.factor(df$stop_duration)
+df$stop_date = as.Date(mdy(df$stop_date)) # date variable
+df = df[, -c(3, 5, 8)] #drop country_name, two raw variables
+df = df %>% drop_na()
+
+#extract stop year, month, day from stop_date
+df = df %>%
+  mutate(stop_year = format(as.Date(df$stop_date, format="%Y-%m-%d"), "%Y"), 
+         stop_month = format(as.Date(df$stop_date, format="%Y-%m-%d"), "%m"), 
+         stop_day = format(as.Date(df$stop_date, format="%Y-%m-%d"), "%d"))
+
+#get the stop hour from stop_time (might take a few seconds to run)
+stop_hour = c()
+temp = strsplit(df$stop_time, split = ":")
+for (i in 1:nrow(df)){
+  stop_hour = c(stop_hour, temp[[i]][1]) 
+}
+df$stop_hour = as.numeric(stop_hour)
+```
+```{r}
+#https://github.com/rstudio/shinydashboard/issues/281
+#wordcloud2(): cause other plots failed to show in the shiny app
+#wordcloud2a(): resolve this issue
+wordcloud2a <- function (data, size = 1, minSize = 0, gridSize = 0, fontFamily = "Segoe UI", 
+          fontWeight = "bold", color = "random-dark", backgroundColor = "white", 
+          minRotation = -pi/4, maxRotation = pi/4, shuffle = TRUE, 
+          rotateRatio = 0.4, shape = "circle", ellipticity = 0.65, 
+          widgetsize = NULL, figPath = NULL, hoverFunction = NULL) 
+{
+  if ("table" %in% class(data)) {
+    dataOut = data.frame(name = names(data), freq = as.vector(data))
+  }
+  else {
+    data = as.data.frame(data)
+    dataOut = data[, 1:2]
+    names(dataOut) = c("name", "freq")
+  }
+  if (!is.null(figPath)) {
+    if (!file.exists(figPath)) {
+      stop("cannot find fig in the figPath")
+    }
+    spPath = strsplit(figPath, "\\.")[[1]]
+    len = length(spPath)
+    figClass = spPath[len]
+    if (!figClass %in% c("jpeg", "jpg", "png", "bmp", "gif")) {
+      stop("file should be a jpeg, jpg, png, bmp or gif file!")
+    }
+    base64 = base64enc::base64encode(figPath)
+    base64 = paste0("data:image/", figClass, ";base64,", 
+                    base64)
+  }
+  else {
+    base64 = NULL
+  }
+  weightFactor = size * 180/max(dataOut$freq)
+  settings <- list(word = dataOut$name, freq = dataOut$freq, 
+                   fontFamily = fontFamily, fontWeight = fontWeight, color = color, 
+                   minSize = minSize, weightFactor = weightFactor, backgroundColor = backgroundColor, 
+                   gridSize = gridSize, minRotation = minRotation, maxRotation = maxRotation, 
+                   shuffle = shuffle, rotateRatio = rotateRatio, shape = shape, 
+                   ellipticity = ellipticity, figBase64 = base64, hover = htmlwidgets::JS(hoverFunction))
+  chart = htmlwidgets::createWidget("wordcloud2", settings, 
+                                    width = widgetsize[1], height = widgetsize[2], sizingPolicy = htmlwidgets::sizingPolicy(viewer.padding = 0, 
+                                                                                                                            browser.padding = 0, browser.fill = TRUE))
+  chart
+}
+```
+
+```{r wordcloud}
+word_cloud = function(df){
+  df_vio = df %>%
+    group_by(violation) %>%
+    summarise(n = n()) %>%
+    rename(word = violation)
+  
+  df_race = df %>%
+    group_by(driver_race) %>%
+    summarise(n = n())%>%
+    rename(word = driver_race)
+
+  df_outcome = df %>%
+    group_by(stop_outcome) %>%
+    summarise(n = n())%>%
+    rename(word = stop_outcome)
+
+  df_search = df %>%
+    filter(search_type != "unknown") %>%
+    group_by(search_type) %>%
+    summarise(n = n())%>%
+    rename(word = search_type)
+
+  temp = bind_rows(df_vio, df_race, df_outcome, df_search)
+  wordcloud2a(temp, size=1, color='random-dark')
+}
+
+word_cloud(df)
+```
+
+```{r}
+#pie chart of violation type
+pie_violation = function(df){
+  df %>%
+    group_by(violation) %>%
+    summarise(n = n()) %>%
+    ggplot(aes(x="", y=n, fill=violation)) +
+    geom_bar(stat="identity", width=1, alpha = 0.7, color="white") +
+    coord_polar("y", start=0)+
+    theme_void()+ 
+    ggtitle("TODO") +
+    scale_fill_brewer(palette="Dark2")+
+    labs(fill='Violation') +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+pie_violation(df)
+```
+
+```{r}
+#the ethnic demographics in maryland
+#https://www.montgomerycountymd.gov/Homelessness/demographics.html
+maryland = c(0.14, 0.17, 0.19, 0.04, 0.46)
+
+#bar plot of ethnic demographics of the violation population and maryland population
+bar_ethnic = function(df){
+  df %>%
+    group_by(driver_race) %>%
+    summarise(n = n()) %>%
+    mutate(n = n/sum(n), maryland = maryland) %>%
+    rename("Violation Population" = n,
+           "Maryland Population" = maryland) %>%
+    pivot_longer(c("Violation Population", "Maryland Population"), names_to = "percent") %>%
+    ggplot(aes(fill=driver_race, y=value, x=percent)) + 
+    geom_bar(position="fill", stat="identity", col = "white", alpha = 0.7)+
+    theme_minimal()+ 
+    xlab("")+
+    ylab("Percentage")+
+    ggtitle("TODO") +
+    labs(fill='Driver Race') +
+    scale_fill_brewer(palette="Dark2")+
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+bar_ethnic(df)
+```
+
+```{r}
+#density plot of race faceted by violation types
+den_ethnic = function(df){
+  ggplot(df, aes(x = driver_age, fill = driver_race)) +
+    # ?position = "stack"
+    geom_density(alpha = 0.7, col = "white") +
+    facet_grid(violation~.)+
+    theme_minimal()+
+    scale_fill_brewer(palette="Dark2")+
+    xlab("Driver age")+
+    ylab("Density")+
+    ggtitle("TODO") +
+    labs(fill='Driver Race') +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+den_ethnic(df)
+```
+
+
+```{r}
+#ridgeline plots
+ridge_gender = function(df){
+  ggplot(df, aes(x = driver_age, y =  violation, fill = driver_gender)) +
+    geom_density_ridges(alpha = 0.6, col = "white") +
+    theme_minimal() +
+    xlab("Driver age")+
+    ylab("")+
+    ggtitle("TODO") +
+    labs(fill='Driver Gender') +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+ridge_gender(df)
+```
+
+```{r}
+line_hour = function(df){
+  df %>%
+    group_by(stop_hour, violation) %>%
+    summarise(n = n()) %>%
+    ggplot(mapping = aes(stop_hour, n, col = violation))+
+    geom_line(size=1.5, alpha=0.7, linetype=2)+
+    theme_minimal()+
+    scale_color_brewer(palette="Dark2")+
+    xlab("Stop Hour")+
+    ylab("Count")+
+    ggtitle("TODO") +
+    labs(color='Violation') +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+line_hour(df)
+```
+
+```{r}
+violin = function(df){
+  arrest = ggplot(df, aes(y = is_arrested, x = driver_age, fill = is_arrested)) +
+    geom_violin(width=1, col = "white") + 
+    geom_boxplot(width=0.1, color="grey", alpha=0.2)+
+    theme_minimal()+
+    xlab("Driver age")+
+    ylab("Whether Arrested")+
+    ggtitle("TODO") +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)), legend.position = "none")
+  
+  drug = ggplot(df, aes(y = drugs_related_stop, x = driver_age, fill = drugs_related_stop)) +
+    geom_violin(width=1, col = "white") + 
+    geom_boxplot(width=0.1, color="grey", alpha=0.2)+
+    theme_minimal()+
+    xlab("Driver age")+
+    ylab("Drug Related Stop")+
+    ggtitle("TODO") +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)), legend.position = "none")
+  arrest+drug
+}
+violin(df)
+```
+
+```{r helper methods}
+## used in brushing to select the stop date
+reset_selection <- function(x, brush) {
+  brushedPoints(x, brush, allRows = TRUE)$selected_
+}
+
+## create the histogram using in brushing
+## x axis is the stop date of the traffic violation
+## the height of each bar represents the total number of violation at the stop date
+hist_brushed <- function(df) {
+  df %>%
+    mutate(n = 1) %>%
+    group_by(stop_date, stop_year) %>%
+    summarise(n = sum(n)) %>%
+    ggplot(aes(stop_date, n, fill = stop_year)) +
+    geom_col(alpha=0.7)+
+    xlab("Stop date of the traffic violation")+
+    ylab("Total number of violation cases")+
+    ggtitle("Total number of violation over the stop date")+
+    scale_fill_brewer(palette="Dark2")+
+    labs(fill='Stop Year') +
+    theme_minimal()+
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)))
+}
+hist_brushed(df)
+```
+
+
+
+```{r}
+ui <- fluidPage(
+  titlePanel("Traffic Violation"),
+  fluidRow(column(4, wordcloud2Output("word_cloud")),
+           
+           column(8, 
+                  p("TODO----p creates a paragraph of text."),
+      p("A new p() command starts a new paragraph. Supply a style attribute to change the format of the entire paragraph.", style = "font-family: 'times'; font-si16pt"),
+      strong("strong() makes bold text."),
+      em("em() creates italicized (i.e, emphasized) text."),
+      br(),
+      code("code displays your text similar to computer code"),
+      div("div creates segments of text with a similar style. This division of text is all blue because I passed the argument 'style = color:blue' to div", style = "color:blue"),
+      br(),
+      p("span does the same thing as div, but it works with",
+        span("groups of words", style = "color:blue"),
+        "that appear inside a paragraph."))),
+  
+  fluidRow(column(4, 
+                    plotOutput("pie_violation"),
+                    plotOutput("bar_ethnic")
+                    ),
+             column(8,
+                    plotOutput("ridge_gender"), 
+                    plotOutput("den_ethnic")
+                    )
+    ),
+  sidebarLayout(
+  sidebarPanel(
+    sliderInput("age", "Age", c(40,60), min = 15, max = 88, step = 1),
+      checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender), 
+                         selected = unique(df$driver_gender)), 
+      # can only select one value ?change?
+      selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE), 
+      plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))
+      ),
+    
+    mainPanel(plotOutput("line_hour"), 
+      plotOutput("violin"))
+  
+  )
+)
+
+
+server <- function(input, output) {
+  df_sub_brushed <- reactive({
+    brushedPoints(df, input$plot_brush) %>%
+      filter((driver_race %in% input$race),
+             driver_gender %in% input$gender,
+             driver_age >= input$age[1],
+             driver_age <= input$age[2])
+   })
+  
+  df_sub_unbrushed <- reactive({
+    df %>%
+      filter((driver_race %in% input$race),
+             driver_gender %in% input$gender,
+             driver_age >= input$age[1],
+             driver_age <= input$age[2])
+   })
+  selected <- reactiveVal(rep(TRUE, nrow(df)))
+  observeEvent(
+    input$plot_brush,
+    selected(reset_selection(df, input$plot_brush))
+  )
+  
+  output$word_cloud = renderWordcloud2(word_cloud(df))
+  output$bar_ethnic = renderPlot(bar_ethnic(df))
+  output$den_ethnic = renderPlot(den_ethnic(df))
+  output$pie_violation = renderPlot(pie_violation(df))
+  output$ridge_gender = renderPlot(ridge_gender(df))
+  
+  output$hist_brushed <-
+    renderPlot(hist_brushed(df_sub_unbrushed()))
+  output$line_hour = renderPlot(line_hour(df_sub_brushed()))
+  output$violin = renderPlot(violin(df_sub_brushed()))
+}
+
+app <- shinyApp(ui, server)
+app
+```
+
