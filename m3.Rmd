@@ -12,7 +12,7 @@ library(patchwork)
 
 ```{r clean}
 ## change file path
-df = read_csv("traffic_violations.csv")
+df = read_csv("traffic_violaions.csv")
 ## no changes to the following code
 df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
 # factor variables
