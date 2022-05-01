@@ -21,7 +21,7 @@ library(shinythemes)
 # Data
 ```{r clean}
 ## change file path
-df = read.csv("./traffic_violaions.csv",
+df = read.csv("./traffic_violations.csv",
               na.strings=c("","NA"))
 ## no changes to the following code
 df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
