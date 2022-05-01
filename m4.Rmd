@@ -1,7 +1,11 @@
 ---
-title: "Milestone3"
+title: "m4_yeon"
 output: html_document
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ```{r packages}
 library(shiny)
@@ -11,11 +15,13 @@ library(readr)
 library(patchwork)
 library(ggridges)
 library(wordcloud2) 
+library(shinythemes)
 ```
 
+# Data
 ```{r clean}
 ## change file path
-df = read.csv("./code/raw data/traffic_violaions.csv",
+df = read.csv("./traffic_violaions.csv",
               na.strings=c("","NA"))
 ## no changes to the following code
 df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
@@ -44,7 +50,11 @@ for (i in 1:nrow(df)){
   stop_hour = c(stop_hour, temp[[i]][1]) 
 }
 df$stop_hour = as.numeric(stop_hour)
+
+df
 ```
+
+# Description
 ```{r}
 #https://github.com/rstudio/shinydashboard/issues/281
 #wordcloud2(): cause other plots failed to show in the shiny app
@@ -92,9 +102,7 @@ wordcloud2a <- function (data, size = 1, minSize = 0, gridSize = 0, fontFamily =
                                                                                                                             browser.padding = 0, browser.fill = TRUE))
   chart
 }
-```
 
-```{r wordcloud}
 word_cloud = function(df){
   df_vio = df %>%
     group_by(violation) %>%
@@ -120,12 +128,10 @@ word_cloud = function(df){
   temp = bind_rows(df_vio, df_race, df_outcome, df_search)
   wordcloud2a(temp, size=1, color='random-dark')
 }
-
-word_cloud(df)
 ```
 
+# Static Plot functions
 ```{r}
-#pie chart of violation type
 pie_violation = function(df){
   df %>%
     group_by(violation) %>%
@@ -134,16 +140,13 @@ pie_violation = function(df){
     geom_bar(stat="identity", width=1, alpha = 0.7, color="white") +
     coord_polar("y", start=0)+
     theme_void()+ 
-    ggtitle("TODO") +
-    scale_fill_brewer(palette="Dark2")+
+    ggtitle("Violation Type Ratio") +
+    scale_fill_brewer(palette="Pastel1")+
     labs(fill='Violation') +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-pie_violation(df)
-```
 
-```{r}
 #the ethnic demographics in maryland
 #https://www.montgomerycountymd.gov/Homelessness/demographics.html
 maryland = c(0.14, 0.17, 0.19, 0.04, 0.46)
@@ -162,16 +165,13 @@ bar_ethnic = function(df){
     theme_minimal()+ 
     xlab("")+
     ylab("Percentage")+
-    ggtitle("TODO") +
+    ggtitle("Comparison between Maryland's and Driver's Race Ratio") +
     labs(fill='Driver Race') +
     scale_fill_brewer(palette="Dark2")+
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-bar_ethnic(df)
-```
 
-```{r}
 #density plot of race faceted by violation types
 den_ethnic = function(df){
   ggplot(df, aes(x = driver_age, fill = driver_race)) +
@@ -182,16 +182,12 @@ den_ethnic = function(df){
     scale_fill_brewer(palette="Dark2")+
     xlab("Driver age")+
     ylab("Density")+
-    ggtitle("TODO") +
+    ggtitle("Density plot of driver's race and age for different violation types") +
     labs(fill='Driver Race') +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-den_ethnic(df)
-```
 
-
-```{r}
 #ridgeline plots
 ridge_gender = function(df){
   ggplot(df, aes(x = driver_age, y =  violation, fill = driver_gender)) +
@@ -199,70 +195,35 @@ ridge_gender = function(df){
     theme_minimal() +
     xlab("Driver age")+
     ylab("")+
-    ggtitle("TODO") +
+    ggtitle("Ridgeline plot of violations based on driver's gender") +
     labs(fill='Driver Gender') +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-ridge_gender(df)
 ```
 
+# Interactive Plot
+functions to be recalled
 ```{r}
-line_hour = function(df){
-  df %>%
+# geom line plot
+line_hour = function(subData){
+  subData %>%
     group_by(stop_hour, violation) %>%
     summarise(n = n()) %>%
     ggplot(mapping = aes(stop_hour, n, col = violation))+
     geom_line(size=1.5, alpha=0.7, linetype=2)+
     theme_minimal()+
-    scale_color_brewer(palette="Dark2")+
+    scale_color_brewer(palette="Pastel1")+
     xlab("Stop Hour")+
     ylab("Count")+
-    ggtitle("TODO") +
+    ggtitle("Violation frequency by time") +
     labs(color='Violation') +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-line_hour(df)
-```
 
-```{r}
-violin = function(df){
-  arrest = ggplot(df, aes(y = is_arrested, x = driver_age, fill = is_arrested)) +
-    geom_violin(width=1, col = "white") + 
-    geom_boxplot(width=0.1, color="grey", alpha=0.2)+
-    theme_minimal()+
-    xlab("Driver age")+
-    ylab("Whether Arrested")+
-    ggtitle("TODO") +
-    theme(plot.title = element_text(size=20, face="bold", 
-    margin = margin(10, 0, 10, 0)), legend.position = "none")
-  
-  drug = ggplot(df, aes(y = drugs_related_stop, x = driver_age, fill = drugs_related_stop)) +
-    geom_violin(width=1, col = "white") + 
-    geom_boxplot(width=0.1, color="grey", alpha=0.2)+
-    theme_minimal()+
-    xlab("Driver age")+
-    ylab("Drug Related Stop")+
-    ggtitle("TODO") +
-    theme(plot.title = element_text(size=20, face="bold", 
-    margin = margin(10, 0, 10, 0)), legend.position = "none")
-  arrest+drug
-}
-violin(df)
-```
-
-```{r helper methods}
-## used in brushing to select the stop date
-reset_selection <- function(x, brush) {
-  brushedPoints(x, brush, allRows = TRUE)$selected_
-}
-
-## create the histogram using in brushing
-## x axis is the stop date of the traffic violation
-## the height of each bar represents the total number of violation at the stop date
-hist_brushed <- function(df) {
-  df %>%
+hist_brushed <- function(subData) {
+  subData %>%
     mutate(n = 1) %>%
     group_by(stop_date, stop_year) %>%
     summarise(n = sum(n)) %>%
@@ -271,96 +232,114 @@ hist_brushed <- function(df) {
     xlab("Stop date of the traffic violation")+
     ylab("Total number of violation cases")+
     ggtitle("Total number of violation over the stop date")+
-    scale_fill_brewer(palette="Dark2")+
+    scale_fill_brewer(palette="Reds")+
     labs(fill='Stop Year') +
     theme_minimal()+
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
-hist_brushed(df)
+
+violin = function(subData){
+  arrest = ggplot(subData, aes(y = is_arrested, x = driver_age, fill = is_arrested)) +
+    geom_violin(width=1, col = "white") + 
+    geom_boxplot(width=0.2, color="white", alpha=0.2)+
+    theme_minimal()+
+    xlab("Driver age")+
+    ylab("Is Arrested")+
+    ggtitle("Arrested distribution") +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)), legend.position = "none")+
+    scale_fill_grey(start=0.7,end=0.3)
+  
+  drug = ggplot(subData, aes(y = drugs_related_stop, x = driver_age, fill = drugs_related_stop)) +
+    geom_violin(width=1, col = "white") + 
+    geom_boxplot(width=0.2, color="white", alpha=0.2)+
+    theme_minimal()+
+    xlab("Driver age")+
+    ylab("Is Drug Related Stopped")+
+    ggtitle("Drug related distribution") +
+    theme(plot.title = element_text(size=20, face="bold", 
+    margin = margin(10, 0, 10, 0)), legend.position = "none")+
+    scale_fill_grey(start=0.7,end=0.3)
+  
+  arrest+drug
+}
 ```
 
-
-
+# Shiny App Driver Method
 ```{r}
-ui <- fluidPage(
-  titlePanel("Traffic Violation"),
-  fluidRow(column(4, wordcloud2Output("word_cloud")),
-           
-           column(8, 
-                  p("TODO----p creates a paragraph of text."),
-      p("A new p() command starts a new paragraph. Supply a style attribute to change the format of the entire paragraph.", style = "font-family: 'times'; font-si16pt"),
-      strong("strong() makes bold text."),
-      em("em() creates italicized (i.e, emphasized) text."),
-      br(),
-      code("code displays your text similar to computer code"),
-      div("div creates segments of text with a similar style. This division of text is all blue because I passed the argument 'style = color:blue' to div", style = "color:blue"),
-      br(),
-      p("span does the same thing as div, but it works with",
-        span("groups of words", style = "color:blue"),
-        "that appear inside a paragraph."))),
+ui <- navbarPage(
+  theme= shinytheme("simplex"), "Traffic Violation", 
   
-  fluidRow(column(4, 
-                    plotOutput("pie_violation"),
-                    plotOutput("bar_ethnic")
-                    ),
-             column(8,
-                    plotOutput("ridge_gender"), 
-                    plotOutput("den_ethnic")
-                    )
-    ),
-  sidebarLayout(
-  sidebarPanel(
-    sliderInput("age", "Age", c(40,60), min = 15, max = 88, step = 1),
-      checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender), 
-                         selected = unique(df$driver_gender)), 
-      # can only select one value ?change?
-      selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE), 
-      plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))
-      ),
+  tabPanel( "1.Description",
+            mainPanel(
+              p("This project aims to study if there are any patterns in traffic violations based on population demographics of racial groups, age groups, and gender. By studying demographic relationships with traffic violations, we hope that policymakers will be able to come up with a plan tailored to the specific social group to minimize traffic violations and traffic accidents in the future. We used the \"Traffic and Drugs Related Violations\" dataset with 65,000 traffic records with 12 variables, such as driver’s age, gender, and race."), br(),
+              p("With this traffic violations data, we developed our Shiny App into three tabs"),
+              p("1. Brief Description and trend to focus on"),
+              p("2. Static Plots of data"),
+              p("3. Interactive Plots available for users"), br(),
+              p("While using this Shiny App, we would suggest focusing on the keywords as suggested in below word cloud diagram, which shows most frequent features in larger fonts."),
     
-    mainPanel(plotOutput("line_hour"), 
-      plotOutput("violin"))
-  
+
+              wordcloud2Output("word_cloud")
+            )
+  ),
+  tabPanel( "2.Static Plots",
+            mainPanel(
+              plotOutput("pie_violation"),br(),br(),
+              plotOutput("bar_ethnic"),br(),br(),
+              plotOutput("den_ethnic"),br(),br(),
+              plotOutput("ridge_gender")
+            )
+  ),
+  tabPanel( "3.Interactive Plots",
+            # INPUT
+            sidebarPanel(
+              sliderInput("age", "Age", c(40,60), min = 15, max = 88, step = 1),
+              checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender),
+                                 selected = unique(df$driver_gender)),
+              selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE),
+              plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))
+            ),
+            # OUTPUT
+            mainPanel(
+              plotOutput("line_hour"),br(),br(),
+              plotOutput("violin"),br(),br(),
+              dataTableOutput("table")
+            )
   )
 )
 
-
-server <- function(input, output) {
+server <- function(input,output){
+  # selected DATA
   df_sub_brushed <- reactive({
-    brushedPoints(df, input$plot_brush) %>%
-      filter((driver_race %in% input$race),
-             driver_gender %in% input$gender,
-             driver_age >= input$age[1],
-             driver_age <= input$age[2])
-   })
-  
-  df_sub_unbrushed <- reactive({
     df %>%
-      filter((driver_race %in% input$race),
-             driver_gender %in% input$gender,
-             driver_age >= input$age[1],
-             driver_age <= input$age[2])
+      mutate(selected = 1* (
+             (driver_race %in% input$race) &
+             (driver_gender %in% input$gender)&
+             (driver_age >= input$age[1])&
+             (driver_age <= input$age[2])
+             )) %>%
+      filter(selected==TRUE)
+    
    })
-  selected <- reactiveVal(rep(TRUE, nrow(df)))
-  observeEvent(
-    input$plot_brush,
-    selected(reset_selection(df, input$plot_brush))
-  )
   
+  #OUTPUT Description
   output$word_cloud = renderWordcloud2(word_cloud(df))
+  
+  #OUTPUT Static
+  output$pie_violation = renderPlot(pie_violation(df)) 
   output$bar_ethnic = renderPlot(bar_ethnic(df))
   output$den_ethnic = renderPlot(den_ethnic(df))
-  output$pie_violation = renderPlot(pie_violation(df))
   output$ridge_gender = renderPlot(ridge_gender(df))
   
-  output$hist_brushed <-
-    renderPlot(hist_brushed(df_sub_unbrushed()))
-  output$line_hour = renderPlot(line_hour(df_sub_brushed()))
+  #OUTPUT Interactive
+  output$hist_brushed <-renderPlot(hist_brushed(df_sub_brushed()))
+  output$line_hour= renderPlot(line_hour(df_sub_brushed()))
   output$violin = renderPlot(violin(df_sub_brushed()))
+  output$table <- renderDataTable(df_sub_brushed())
 }
 
-app <- shinyApp(ui, server)
+app <- shinyApp(ui,server)
 app
 ```
-
