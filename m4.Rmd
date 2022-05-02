@@ -21,7 +21,7 @@ library(shinythemes)
 # Data
 ```{r clean}
 ## change file path
-df = read.csv("./traffic_violations.csv",
+df = read.csv("./code/raw data/traffic_violaions.csv",
               na.strings=c("","NA"))
 ## no changes to the following code
 df$search_type[is.na(df$search_type)] = "unknown" # add a new level unknown
@@ -299,7 +299,7 @@ ui <- navbarPage(
               wordcloud2Output("word_cloud")
             )
   ),
-  tabPanel( "2.Static Plots",
+  tabPanel( "2.Static Plots for Overview",
             mainPanel(
               plotOutput("pie_violation"),br(),br(),
               plotOutput("bar_ethnic"),br(),br(),
@@ -307,7 +307,7 @@ ui <- navbarPage(
               plotOutput("ridge_gender")
             )
   ),
-  tabPanel( "3.Interactive Plots",
+  tabPanel( "3.Interactive Plots for Exploration",
             # INPUT
             sidebarPanel(
               p("1. Filter the violation dataset"),
@@ -316,14 +316,13 @@ ui <- navbarPage(
                                  selected = unique(df$driver_gender)),
               selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE),
               
-              p("2. Drag over a region to narrow down the data furthermore"),
+              p("2. Brush over the plot to narrow down the data furthermore"),
               plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x")) # allows brushing
             ),
             # OUTPUT
             mainPanel(
               plotOutput("line_hour"),
-              plotOutput("violin"),
-              dataTableOutput("table")
+              plotOutput("violin")
             )
   )
 )
@@ -370,7 +369,6 @@ server <- function(input,output){
   output$hist_brushed <-renderPlot(hist_brushed2(df_subset()))
   output$line_hour= renderPlot(line_hour(trim_data()))
   output$violin = renderPlot(violin(trim_data()))
-  output$table <- renderDataTable(trim_data())
 }
 
 app <- shinyApp(ui,server)
