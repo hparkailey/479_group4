@@ -51,7 +51,7 @@ for (i in 1:nrow(df)){
 }
 df$stop_hour = as.numeric(stop_hour)
 
-df
+head(df)
 ```
 
 # Description
@@ -202,8 +202,7 @@ ridge_gender = function(df){
 }
 ```
 
-# Interactive Plot
-functions to be recalled
+# Interactive Plot functions
 ```{r}
 # geom line plot
 line_hour = function(subData){
@@ -216,12 +215,13 @@ line_hour = function(subData){
     scale_color_brewer(palette="Pastel1")+
     xlab("Stop Hour")+
     ylab("Count")+
-    ggtitle("Violation frequency by time") +
+    ggtitle("Violation frequency by time in hour") +
     labs(color='Violation') +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)))
 }
 
+# to delete
 hist_brushed <- function(subData) {
   subData %>%
     mutate(n = 1) %>%
@@ -239,6 +239,22 @@ hist_brushed <- function(subData) {
     margin = margin(10, 0, 10, 0)))
 }
 
+# histogram to select/drag over the data
+hist_brushed2 <- function(df) {
+  df%>%
+    group_by(stop_date) %>%
+    ggplot(aes(x=stop_date,fill=stop_year)) +
+    geom_bar()+
+    xlab("Stop date of the traffic violation")+
+    ylab("Total count of cases")+
+    ggtitle("Total number of violation over the stop date")+
+    scale_fill_brewer(palette="Reds")+
+    labs(fill='Stop Year') +
+    theme_minimal()+
+    theme(plot.title=element_text(size=17,face="bold",margin = margin(10, 0, 10, 0)))
+}
+
+# arrested and drug related
 violin = function(subData){
   arrest = ggplot(subData, aes(y = is_arrested, x = driver_age, fill = is_arrested)) +
     geom_violin(width=1, col = "white") + 
@@ -256,7 +272,7 @@ violin = function(subData){
     geom_boxplot(width=0.2, color="white", alpha=0.2)+
     theme_minimal()+
     xlab("Driver age")+
-    ylab("Is Drug Related Stopped")+
+    ylab("Is Drug Related Stop")+
     ggtitle("Drug related distribution") +
     theme(plot.title = element_text(size=20, face="bold", 
     margin = margin(10, 0, 10, 0)), legend.position = "none")+
@@ -279,7 +295,6 @@ ui <- navbarPage(
               p("2. Static Plots of data"),
               p("3. Interactive Plots available for users"), br(),
               p("While using this Shiny App, we would suggest focusing on the keywords as suggested in below word cloud diagram, which shows most frequent features in larger fonts."),
-    
 
               wordcloud2Output("word_cloud")
             )
@@ -295,24 +310,27 @@ ui <- navbarPage(
   tabPanel( "3.Interactive Plots",
             # INPUT
             sidebarPanel(
+              p("1. Filter the violation dataset"),
               sliderInput("age", "Age", c(40,60), min = 15, max = 88, step = 1),
               checkboxGroupInput("gender", "Gender", choices = unique(df$driver_gender),
                                  selected = unique(df$driver_gender)),
               selectInput("race", "Race", c("White","Black","Asian","Hispanic","Other"),unique(df$driver_race), multiple = TRUE),
-              plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x"))
+              
+              p("2. Drag over a region to narrow down the data furthermore"),
+              plotOutput("hist_brushed", brush = brushOpts("plot_brush", direction = "x")) # allows brushing
             ),
             # OUTPUT
             mainPanel(
-              plotOutput("line_hour"),br(),br(),
-              plotOutput("violin"),br(),br(),
+              plotOutput("line_hour"),
+              plotOutput("violin"),
               dataTableOutput("table")
             )
   )
 )
 
 server <- function(input,output){
-  # selected DATA
-  df_sub_brushed <- reactive({
+  # DATA
+  df_subset <- reactive({# selected subset
     df %>%
       mutate(selected = 1* (
              (driver_race %in% input$race) &
@@ -321,23 +339,38 @@ server <- function(input,output){
              (driver_age <= input$age[2])
              )) %>%
       filter(selected==TRUE)
-    
    })
   
-  #OUTPUT Description
+  df_subset_brushed <- reactive({# brushed/dragged subset of subset
+    brushedPoints(df, input$plot_brush) %>%
+      filter((driver_race %in% input$race),
+             driver_gender %in% input$gender,
+             driver_age >= input$age[1],
+             driver_age <= input$age[2])
+  })
+  
+  trim_data <- reactive({# select subset OR dragged subset
+    n=nrow(brushedPoints(df, brush=input$plot_brush))
+    if(n==0) 
+      df_subset()
+    else 
+      df_subset_brushed()
+  })
+  
+  #1.Description
   output$word_cloud = renderWordcloud2(word_cloud(df))
   
-  #OUTPUT Static
+  #2.Static
   output$pie_violation = renderPlot(pie_violation(df)) 
   output$bar_ethnic = renderPlot(bar_ethnic(df))
   output$den_ethnic = renderPlot(den_ethnic(df))
   output$ridge_gender = renderPlot(ridge_gender(df))
   
-  #OUTPUT Interactive
-  output$hist_brushed <-renderPlot(hist_brushed(df_sub_brushed()))
-  output$line_hour= renderPlot(line_hour(df_sub_brushed()))
-  output$violin = renderPlot(violin(df_sub_brushed()))
-  output$table <- renderDataTable(df_sub_brushed())
+  #3.Interactive
+  output$hist_brushed <-renderPlot(hist_brushed2(df_subset()))
+  output$line_hour= renderPlot(line_hour(trim_data()))
+  output$violin = renderPlot(violin(trim_data()))
+  output$table <- renderDataTable(trim_data())
 }
 
 app <- shinyApp(ui,server)
